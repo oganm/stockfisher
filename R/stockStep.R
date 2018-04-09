@@ -1,3 +1,10 @@
+#' @export
+startStockfish = function(){
+    stockfish = system2('which','stockfish',stdout = TRUE)
+    stockfish = subprocess::spawn_process(stockfish)
+    return(stockfish)
+}
+
 #' Title
 #'
 #' @param board 
