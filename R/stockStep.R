@@ -16,7 +16,7 @@ startStockfish = function(){
 #' @export
 #'
 #' @examples
-stockStep = function(board, movetime = 5000, translate = TRUE, stockfish = NULL){
+stockStep = function(board, movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = TRUE, stockfish = NULL){
     if(is.null(stockfish)){
         if(Sys.info()['sysname'] =='Windows'){
             stockfish = system2('where','stockfish',stdout = TRUE)
@@ -50,7 +50,13 @@ stockStep = function(board, movetime = 5000, translate = TRUE, stockfish = NULL)
             if(x=='ponder'){ # on ponder
                 boardClone$move(out$bestmove)
             }
-            out[[x]] = translateMove(out[[x]],boardClone)
+            out[[x]] = boardClone$moves(verbose = TRUE) %>% 
+                mutate(ft = paste0(from, to)) %>% 
+                filter(ft == out[[x]]) %$% 
+                san
+            assertthat::assert_that(length(out[[x]])==1)
+            
+            # out[[x]] = translateMove(out[[x]],boardClone)
         }
     }
     return(out)
