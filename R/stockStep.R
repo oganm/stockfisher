@@ -29,20 +29,30 @@ stockStep = function(board, movetime = 5000, wtime = NULL, btime = NULL, depth =
     # stockfish = subprocess::spawn_process(stockfish)
     # process_read(stockfish, PIPE_STDOUT, timeout = 1000,  flush = FALSE)
     subprocess::process_write(stockfish, glue::glue('position fen {board$fen()}\n\n'))
-    subprocess::process_write(stockfish, glue::glue('go movetime {movetime}\n\n'))
-    Sys.sleep(movetime/1000+0.1)
+    if(!is.null(movetime)){
+        subprocess::process_write(stockfish, glue::glue('go movetime {movetime}\n\n'))
+        Sys.sleep(movetime/1000+0.1)
+    } else if(!is.null(wtime) & !is.null(btime)){
+        subprocess::process_write(stockfish, glue::glue('go wtime {wtime} btime {btime}\n\n'))
+    } else if(!is.null(depth)){
+        subprocess::process_write(stockfish, glue::glue('go depth {depth}\n\n'))
+    }
+    
+    # Sys.sleep(movetime/1000+0.1)
     out = ''
-    while(!grepl(pattern = 'bestmove',x = out)){
-        out = process_read(stockfish, PIPE_STDOUT, timeout = 1000,  flush = TRUE)
-        out = out[length(out)]
+    while(!grepl(pattern = 'bestmove',x = out[length(out)])){
+        out = c(out,subprocess::process_read(stockfish, subprocess::PIPE_STDOUT, timeout = 1000,  flush = TRUE))
+        # out = out[length(out)]
     }
     # subprocess::process_kill(stockfish)
     
-    bestmove = stringr::str_extract(out, '(?<=bestmove )[a-zA-Z0-9]+')
-    ponder = stringr::str_extract(out, '(?<=ponder )[a-zA-Z0-9]+')
+    bestmove = stringr::str_extract(out[length(out)], '(?<=bestmove )[a-zA-Z0-9]+')
+    ponder = stringr::str_extract(out[length(out)], '(?<=ponder )[a-zA-Z0-9]+')
+    score = stringr::str_extract(out[length(out)-1],'(?<=cp )[0-9]*') %>% as.integer()
     
     out = list(bestmove = bestmove,
-               ponder = ponder)
+               ponder = ponder,
+               score = score)
     if(translate){
         for(x in c('bestmove','ponder')){
             boardClone = rchess::Chess$new()
@@ -50,10 +60,15 @@ stockStep = function(board, movetime = 5000, wtime = NULL, btime = NULL, depth =
             if(x=='ponder'){ # on ponder
                 boardClone$move(out$bestmove)
             }
-            out[[x]] = boardClone$moves(verbose = TRUE) %>% 
+            matches = boardClone$moves(verbose = TRUE) %>% 
                 mutate(ft = paste0(from, to)) %>% 
-                filter(ft == out[[x]]) %$% 
+                filter(ft == stringr::str_extract(out[[x]],pattern = '[a-z][0-9][a-z][0-9]')) %$% 
                 san
+            if(length(matches)>1){
+                out[[x]] = matches[grepl(stringr::str_extract(out[[x]],'(?<=[0-9])[a-z]$'),matches,ignore.case = TRUE)]
+            } else{
+                out[[x]] = matches
+            }
             assertthat::assert_that(length(out[[x]])==1)
             
             # out[[x]] = translateMove(out[[x]],boardClone)

@@ -23,6 +23,7 @@ library(tools)
 devtools::load_all()
 
 stockfish = system2('which','stockfish',stdout = TRUE)
+stockfish = 'C:/Users/Ogan/Desktop/stockfish-9-win/Windows/stockfish_9_x64.exe'
 stockfish = subprocess::spawn_process(stockfish)
 
 dir.create('chessImg',showWarnings = FALSE)
@@ -40,6 +41,7 @@ while(board$game_over() == FALSE){
         movetime = 1000 # here black AI is dumber than white AI
     }
     move = stockStep(board,movetime= movetime,stockfish = stockfish)$bestmove
+
     board$move(move)
     p = ggchessboard(board$fen())
     ggsave(paste0('chessImg/',length(board$history()),'.png'))
