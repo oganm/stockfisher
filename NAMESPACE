@@ -3,6 +3,7 @@
 export("%$%")
 export("%<>%")
 export("%>%")
+export(gameAnalysis)
 export(startStockfish)
 export(stockStep)
 export(translateMove)

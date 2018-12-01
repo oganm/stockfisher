@@ -4,8 +4,9 @@
 \alias{stockStep}
 \title{Title}
 \usage{
-stockStep(board, movetime = 5000, wtime = NULL, btime = NULL,
-  depth = NULL, translate = TRUE, stockfish = NULL)
+stockStep(board = NULL, posString = NULL, movetime = 5000,
+  wtime = NULL, btime = NULL, depth = NULL, translate = TRUE,
+  ponder = FALSE, stockfish = NULL)
 }
 \arguments{
 \item{board}{}

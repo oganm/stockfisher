@@ -1,6 +1,10 @@
 #' @export
 startStockfish = function(){
-    stockfish = system2('which','stockfish',stdout = TRUE)
+    if(Sys.info()['sysname'] =='Windows'){
+        stockfish = system2('where','stockfish',stdout = TRUE)
+    } else {
+        stockfish = system2('which','stockfish',stdout = TRUE)
+    }
     stockfish = subprocess::spawn_process(stockfish)
     return(stockfish)
 }
@@ -16,7 +20,7 @@ startStockfish = function(){
 #' @export
 #'
 #' @examples
-stockStep = function(board, movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = TRUE, stockfish = NULL){
+stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = TRUE, ponder = FALSE, stockfish = NULL){
     if(is.null(stockfish)){
         if(Sys.info()['sysname'] =='Windows'){
             stockfish = system2('where','stockfish',stdout = TRUE)
@@ -28,10 +32,16 @@ stockStep = function(board, movetime = 5000, wtime = NULL, btime = NULL, depth =
     }
     # stockfish = subprocess::spawn_process(stockfish)
     # process_read(stockfish, PIPE_STDOUT, timeout = 1000,  flush = FALSE)
-    subprocess::process_write(stockfish, glue::glue('position fen {board$fen()}\n\n'))
+    if(!is.null(board)){
+        subprocess::process_write(stockfish, glue::glue('position fen {board$fen()}\n\n'))
+    } else if(!is.null(posString)){
+        # translate must be false if posString is used
+        subprocess::process_write(stockfish, glue::glue('position {posString}\n\n'))
+    }
+    
     if(!is.null(movetime)){
         subprocess::process_write(stockfish, glue::glue('go movetime {movetime}\n\n'))
-        Sys.sleep(movetime/1000+0.1)
+        Sys.sleep(movetime/1000)
     } else if(!is.null(wtime) & !is.null(btime)){
         subprocess::process_write(stockfish, glue::glue('go wtime {wtime} btime {btime}\n\n'))
     } else if(!is.null(depth)){
@@ -45,14 +55,15 @@ stockStep = function(board, movetime = 5000, wtime = NULL, btime = NULL, depth =
         # out = out[length(out)]
     }
     # subprocess::process_kill(stockfish)
-    
     bestmove = stringr::str_extract(out[length(out)], '(?<=bestmove )[a-zA-Z0-9]+')
     ponder = stringr::str_extract(out[length(out)], '(?<=ponder )[a-zA-Z0-9]+')
-    score = stringr::str_extract(out[length(out)-1],'(?<=cp )[0-9]*') %>% as.integer()
-    
+    scores = out[grepl(pattern = 'score (cp|mate|upperbound|lowerbound)',out)]
+    score = stringr::str_extract(scores[length(scores)],'(?<=(cp|mate|upperbound|lowerbound) )[\\-0-9]*') %>% as.integer()
+    scoreType = stringr::str_extract(scores[length(scores)],'(?<=score )(cp|mate|upperbound|lowerbound)')
     out = list(bestmove = bestmove,
                ponder = ponder,
-               score = score)
+               score = score,
+               scoreType = scoreType)
     if(translate){
         for(x in c('bestmove','ponder')){
             boardClone = rchess::Chess$new()

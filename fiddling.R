@@ -93,3 +93,25 @@ imgs = imgs[order(imgs %>% basename %>% file_path_sans_ext() %>% as.integer())]
 
 animation = imgs %>% lapply(image_read) %>% do.call(c,.) %>% image_animate(fps =1)
 image_write(animation,'game.gif')
+
+
+# game analysis
+pgn <- system.file("extdata/pgn/kasparov_vs_topalov.pgn", package = "rchess")
+pgn <- readLines(pgn, warn = FALSE)
+
+
+pgn = readLines('carlsen_caruana_2018.pgn')
+pgn = readLines('nakamura_kramnik_2012.pgn')
+
+pgn <- paste(pgn, collapse = "\n")
+
+evaluations = gameAnalysis(pgn,movetime = 500,stockfish = stockfish)
+scores = evaluations$score
+scores[evaluations$scoreType=='mate'] = (evaluations$score %>% max)+1
+
+
+chsspgn <- Chess$new()
+chsspgn$load_pgn(pgn)
+moves = chsspgn$history(verbose= TRUE)
+moves$promotion[is.na(moves$promotion)]=''
+stockmoves = paste0(moves$from,moves$to,moves$promotion)
