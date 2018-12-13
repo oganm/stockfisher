@@ -3,24 +3,21 @@
 #' @export
 gameAnalysis = function(game,movetime=5000,depth = NULL,stockfish = NULL){
     if(is.null(stockfish)){
-        if(Sys.info()['sysname'] =='Windows'){
-            stockfish = system2('where','stockfish',stdout = TRUE)
-        } else {
-            stockfish = system2('which','stockfish',stdout = TRUE)
-        }
-        stockfish = subprocess::spawn_process(stockfish)
+        stockfish = startStockfish()
         on.exit(subprocess::process_kill(stockfish))
     }
-    
     if('character' %in% class(game)){
-        game <- Chess$new()
+        game <- rchess::Chess$new()
         game$load_pgn(pgn)
     }
-    
     assertthat::assert_that('Chess' %in% class(game),msg = 'game should be a RChess board or a pgn character string')
     
     moves = game$history(verbose= TRUE)
-    moves$promotion[is.na(moves$promotion)]=''
+    if(suppressWarnings(is.null(moves$promotion))){
+        moves$promotion = ''
+    } else{
+        moves$promotion[is.na(moves$promotion)]=''
+    }
     stockmoves = paste0(moves$from,moves$to,moves$promotion)
     
     pb = txtProgressBar(min = 0,max = length(stockmoves),style = 3)

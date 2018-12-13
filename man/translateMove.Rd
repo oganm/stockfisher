@@ -4,12 +4,12 @@
 \alias{translateMove}
 \title{Title}
 \usage{
-translateMove(move, board)
+translateMove(board, out)
 }
 \arguments{
-\item{move}{}
-
 \item{board}{}
+
+\item{move}{}
 }
 \description{
 Title
