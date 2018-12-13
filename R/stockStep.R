@@ -64,18 +64,37 @@ stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NU
     # Sys.sleep(movetime/1000+0.1)
     out = readBestMove(stockfish)
     
+    if(ponder){
+        ponderfun(board,posString,out,stockfish, tictoc::toc(quiet = TRUE), movetime, wtime,btime,depth)
+    }
+    
     if(translate){
         out = translateMove(board,out)
     }
-    if(ponder){
-        ponderfun(stockfish, tictoc::toc(quiet = TRUE), movetime, wtime,btime,depth)
-    }
+
     return(out)
 }
 
-ponderfun = function(stockfish,toc,movetime=NULL,wtime=NULL,btime=NULL,depth=NULL){
+ponderfun = function(board = NULL,posString = NULL,out,stockfish,toc,movetime=NULL,wtime=NULL,btime=NULL,depth=NULL){
     time = toc
     elapsed = 1000*(time$toc - time$tic)
+    if(!is.null(board)){
+        boardClone = rchess::Chess$new()
+        boardClone$load(board$fen())
+        out = translateMove(board,out)
+        boardClone$move(out$bestmove)
+        boardClone$move(out$ponder)
+        subprocess::process_write(stockfish, glue::glue('position fen {boardClone$fen()}\n\n'))
+    } else if (!is.null(posString)){
+        anneal = paste(out$bestmove,out$ponder)
+        if(grepl('moves',posString)){
+            newPos = paste(posString,anneal)
+        } else{
+            newPos = paste(posString,'moves',anneal)
+        }
+        subprocess::process_write(stockfish, glue::glue('position {newPos}\n\n'))
+        
+    }
     
     if(!is.null(movetime)){
         subprocess::process_write(stockfish, glue::glue('go ponder movetime {movetime}\n\n'))
@@ -136,7 +155,7 @@ readBestMove = function(stockfish){
 }
 
 #' @export
-ponderhit = function(board = NULL,movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
+ponderhit = function(board = NULL,posString = NULL,movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
     if(ponder){
         tictoc::tic()
     }
@@ -144,12 +163,12 @@ ponderhit = function(board = NULL,movetime = 5000, wtime = NULL, btime = NULL, d
     
     out = readBestMove(stockfish)
     
-    if(translate){
-        out = translateMove(board,out)
+    if(ponder){
+        ponderfun(board,posString,out,stockfish, tictoc::toc(quiet = TRUE), movetime, wtime,btime,depth)
     }
     
-    if(ponder){
-        ponderfun(stockfish, tictoc::toc(quiet = TRUE), movetime, wtime,btime,depth)
+    if(translate){
+        out = translateMove(board,out)
     }
     return(out)
 }
