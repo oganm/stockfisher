@@ -32,6 +32,8 @@
 #' @examples
 stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
     # send a stop just in case it was pondering
+    # print('stockstep')
+    # print(board$ascii())
     subprocess::process_write(stockfish, glue::glue('stop\n\n'))
     
     if(is.null(stockfish) & ponder){
@@ -64,7 +66,7 @@ stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NU
     # Sys.sleep(movetime/1000+0.1)
     out = readBestMove(stockfish)
     
-    if(ponder){
+    if(ponder & !is.na(out$ponder)){
         ponderfun(board,posString,out,stockfish, tictoc::toc(quiet = TRUE), movetime, wtime,btime,depth)
     }
     
@@ -76,6 +78,8 @@ stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NU
 }
 
 ponderfun = function(board = NULL,posString = NULL,out,stockfish,toc,movetime=NULL,wtime=NULL,btime=NULL,depth=NULL){
+    # print('ponder func')
+    # print(board$ascii())
     time = toc
     elapsed = 1000*(time$toc - time$tic)
     if(!is.null(board)){
@@ -112,7 +116,13 @@ ponderfun = function(board = NULL,posString = NULL,out,stockfish,toc,movetime=NU
 }
 
 translateMove = function(board,out){
+    # print('translating')
+    # print(board$ascii())
+    # print(out)
     for(x in c('bestmove','ponder')){
+        if(is.na(out[[x]])){
+            next()
+        }
         boardClone = rchess::Chess$new()
         boardClone$load(board$fen())
         if(x=='ponder'){ # on ponder
@@ -140,7 +150,7 @@ readBestMove = function(stockfish){
         out = c(out,subprocess::process_read(stockfish, subprocess::PIPE_STDOUT, timeout = 1000,  flush = TRUE))
         # out = out[length(out)]
     }
-    
+    # cat(out,sep='\n')
     # subprocess::process_kill(stockfish)
     bestmove = stringr::str_extract(out[length(out)], '(?<=bestmove )[a-zA-Z0-9]+')
     ponder = stringr::str_extract(out[length(out)], '(?<=ponder )[a-zA-Z0-9]+')
@@ -159,11 +169,14 @@ ponderhit = function(board = NULL,posString = NULL,movetime = 5000, wtime = NULL
     if(ponder){
         tictoc::tic()
     }
+    # print('ponderhit function')
+    # print(board$ascii())
+    # browser()
     subprocess::process_write(stockfish, glue::glue('ponderhit\n\n'))
     
     out = readBestMove(stockfish)
     
-    if(ponder){
+    if(ponder & !is.na(out$ponder)){
         ponderfun(board,posString,out,stockfish, tictoc::toc(quiet = TRUE), movetime, wtime,btime,depth)
     }
     

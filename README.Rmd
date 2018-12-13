@@ -5,9 +5,9 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 devtools::load_all()
-library(memoise) # getting results faster when working on the file
-gameAnalysis = memoise(gameAnalysis)
-stockStep = memoise(stockStep)
+# library(memoise) # getting results faster when working on the file
+# gameAnalysis = memoise(gameAnalysis)
+# stockStep = memoise(stockStep)
 ```
 
 ## stockfisher
@@ -23,7 +23,7 @@ terminate at function termination which might add some overhead.
 
 To start the stockfish engine that is included in the package, use
 
-```{r}
+```{r startStockfish}
 stockfish = startStockfish()
 ```
 
@@ -35,7 +35,7 @@ engine = subprocess::spawn_process('path/to/engine')
 
 Spawning a process beforehand is also good if you want to set some engine parameters.
 
-```{r}
+```{r setOptions}
 # see available options
 getOptions(stockfish)
 # set the move overhead to 30
@@ -52,9 +52,8 @@ integers if the engine is winning, negative if its losing).
 As an input it accepts a `Chess` object from the `rchess` package or a string that
 could be read by UCI (FEN notation or something like `startpos moves e2e4`).
 
-```{r}
+```{r stockStep}
 library(rchess)
-library(glue)
 
 board = Chess$new()
 
@@ -63,7 +62,7 @@ board = Chess$new()
 stockStep(board,movetime= 2000, stockfish = stockfish)
 
 # use the string as input
-stockStep(posString = glue('startpos moves e2e4'),movetime= 1000, stockfish = stockfish)
+stockStep(posString = 'startpos moves e2e4',movetime= 1000, stockfish = stockfish)
 
 ```
 
@@ -71,7 +70,7 @@ If you want to pass a move back to the rchess board, the short algebraic notatio
 should be used. You can have `stockStep` to return in this format using the `translate`
 argument.
 
-```{r}
+```{r stockStepTranslate}
 stockStep(board,movetime= 2000, stockfish = stockfish,translate = TRUE)
 ```
 Note that the input must always be an `rchess` board rather than the `startPos` argument for this to work.
@@ -84,7 +83,7 @@ scores returned are always from the point of view of the white player. The
 processing time is controlled by the `movetime` or `depth` arguments. Below I analyze
 a Kasparov vs Topalov game whose pgn is included in the rchess package.
 
-```{r}
+```{r gameAnalysis}
 pgn = system.file("extdata/pgn/kasparov_vs_topalov.pgn", package = "rchess")
 pgn = readLines(pgn, warn = FALSE)
 pgn <- paste(pgn, collapse = "\n")
@@ -94,7 +93,7 @@ board$load_pgn(pgn)
 
 # either pgn or board can be used as an input for gameAnalysis
 
-evaluations = gameAnalysis(pgn,movetime = 1000,stockfish = stockfish)
+evaluations = gameAnalysis(pgn,movetime = 500,stockfish = stockfish,progress = FALSE)
 scores = evaluations$score
 # if a score is of type mate, it no longer counts in centipawns but turns
 # left for an expected mate. Here I process these to be one above the maximum cp value.
@@ -103,16 +102,16 @@ scores[evaluations$scoreType=='mate'] = (evaluations$score %>% max)+1
 plot(scores)
 ```
 
-We can see that Kaspawor, who's the white player, has a positive evaluation through
-most of the game and took decisive control of the game at turn 63. If you allow 
-the engine to think longer, the evaluations will be more accurate.
+In this plot positive scores indicate a white advantage while negative
+indicates black advantage. This game is ultimately won by Kasparow, the white player.
+If you allow the engine to think longer, the evaluations will be more accurate.
 
 ### Saving game animations
 
 You can save and create animations of rchess boards with history using `animateGame`.
 `animateGame` invisibly returns a `magick-image` object.
 
-```{r}
+```{r animateGame}
 dir.create('README_files',showWarnings = FALSE)
 animateGame(board,file = 'README_files/kasparov_vs_topalov.gif',
             width = 4,
@@ -124,65 +123,51 @@ animateGame(board,file = 'README_files/kasparov_vs_topalov.gif',
 
 ### Running games
 
-Here I'll use `stockfisher` to run a 1 minute game between 2 AI opponents.  I will
-use two stockfish sessions for two players to demonstrate pondering. If not pondering and
-using the same engine for both players, you can use a single session to evaluate each move.
+Here I'll use `stockfisher` to run a 1 minute game between 2 AI opponents. A single
+session stockfish session is used here but 2 sessions can be started if two different
+engines are to be used. 2 sessions could also be useful if you want to experiment
+with pondering but this package's pondering implementation is currently buggy. Sorry about
+that...
 
+```{r runningGame}
+library(tictoc)
 
-```{r}
-library(dplyr)
+# 1 minute timer for each player
+timer = list(
+    w = 60000,
+    b = 60000
+)
 
-```
-
-Using stockfisher to run a whole game between two AI opponents. Here, white AI is smarter than black AI.
-
-```{r,eval = FALSE}
-library(subprocess)
-library(rchess)
-library(dplyr)
-library(magick)
-library(ggplot2)
-library(tools)
-devtools::load_all()
-
-stockfish = system2('which','stockfish',stdout = TRUE)
-stockfish = 'C:/Users/Ogan/Desktop/stockfish-9-win/Windows/stockfish_9_x64.exe'
-stockfish = subprocess::spawn_process(stockfish)
-
-dir.create('chessImg',showWarnings = FALSE)
-
-# we create an rchess board to play our game with
 board = Chess$new()
-p = ggchessboard(board$fen())
-ggsave(paste0('chessImg/',length(board$history()),'.png'),p)
 
-while(board$game_over() == FALSE){
+while(!board$game_over() & timer[[board$turn()]] > 0){
     turn = board$turn()
-    if(turn =='w'){
-        movetime = 3000 # movetime controls how much time does the AI have to think
-    } else{
-        movetime = 1000 # here black AI is dumber than white AI
-    }
-    move = stockStep(board,movetime= movetime, translate = TRUE, stockfish = stockfish)$bestmove
+    history = board$history()
+    tic()
+    move = stockStep(board,
+                     wtime = timer$w,
+                     btime = timer$b,
+                     translate = TRUE,
+                     stockfish = stockfish)  
 
-    board$move(move)
-    p = ggchessboard(board$fen())
-    ggsave(paste0('chessImg/',length(board$history()),'.png'))
+    board$move(move$bestmove)
+    time = toc(quiet = TRUE)
+    timePassed = 1000*(time$toc - time$tic)
+    timer[[turn]] = unname(timer[[turn]] - timePassed)
+    
 }
 
-subprocess::process_kill(stockfish)
-
-imgs = list.files('chessImg/',full.names = TRUE)
-imgs = imgs[order(imgs %>% basename %>% file_path_sans_ext() %>% as.integer())]
-
-animation = imgs %>% lapply(image_read) %>% do.call(c,.) %>% image_animate(fps =1)
-image_write(animation,'game.gif')
+animateGame(board,file = 'README_files/stockfish_vs_stockfish.gif',
+            width = 4,
+            height = 4,
+            fps = 1,
+            piecesize = 12)
 
 ```
+![](README_files/stockfish_vs_stockfish.gif)
 
-![](game.gif)
+Finally use `stopStockfish` to stop the engine process
 
-### Shiny
-
-
-
+```{r stop}
+stopStockfish(stockfish)
+```

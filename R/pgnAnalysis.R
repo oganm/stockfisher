@@ -1,7 +1,7 @@
 # returns from white perspective
 # game is either a character pgn or a board from rchess
 #' @export
-gameAnalysis = function(game,movetime=5000,depth = NULL,stockfish = NULL){
+gameAnalysis = function(game,movetime=5000,depth = NULL,stockfish = NULL,progress = TRUE){
     if(is.null(stockfish)){
         stockfish = startStockfish()
         on.exit(subprocess::process_kill(stockfish))
@@ -20,10 +20,14 @@ gameAnalysis = function(game,movetime=5000,depth = NULL,stockfish = NULL){
     }
     stockmoves = paste0(moves$from,moves$to,moves$promotion)
     
-    pb = txtProgressBar(min = 0,max = length(stockmoves),style = 3)
+    if(progress){
+        pb = txtProgressBar(min = 0,max = length(stockmoves),style = 3)
+    }
     
     evaluations = lapply(c(0,seq_along(stockmoves)),function(i){
-        setTxtProgressBar(pb,value = i)
+        if(progress){
+            setTxtProgressBar(pb,value = i)
+        }
         if(i == 0){
             init = 'startpos'
         } else{
