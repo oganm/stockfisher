@@ -1,15 +1,31 @@
-estimateOverhead = function(stockfish,movetime = 1000, times = 5){
-    benchmark = microbenchmark::microbenchmark(stockStep(posString = 'startpos',movetime =  movetime,stockfish = stockfish),
-                                               unit= 'ms', times = times)
+estimateOverhead = function(stockfish,movetime = NULL, wtime = NULL, btime=NULL,depth = NULL,translate = FALSE,times = 5){
+    
+    
+    steps = lapply(seq_len(times),function(x){
+        stockStep(posString = 'startpos',
+                                    movetime =  movetime,
+                                    wtime = wtime,
+                                    btime = btime,
+                                    depth = depth,
+                                    stockfish = stockfish)})
+    
+    steps = list()
+    benchmark = microbenchmark::microbenchmark({
+        stockStep(posString = 'startpos',
+                  movetime =  movetime,
+                  wtime = wtime,
+                  btime = btime,
+                  depth = depth,
+                  stockfish = stockfish) -> step
+        steps = c(steps,list(step))
+        assign('steps',steps,envir = parent.frame())
+    },
+    unit= 'ms', times = times)
+    time = steps %>% sapply(function(x){x$time})
+    
+    benchmark$time = benchmark$time - time*1000000
     
     benchmark = summary(benchmark)
-    benchmark$min = benchmark$min - movetime
-    benchmark$lq = benchmark$lq - movetime
-    benchmark$mean = benchmark$mean - movetime
-    benchmark$median = benchmark$median - movetime
-    benchmark$uq = benchmark$uq - movetime
-    benchmark$max = benchmark$max - movetime
-    
     return(benchmark)
     
 }

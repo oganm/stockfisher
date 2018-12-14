@@ -13,12 +13,7 @@ gameAnalysis = function(game,movetime=5000,depth = NULL,stockfish = NULL,progres
     assertthat::assert_that('Chess' %in% class(game),msg = 'game should be a RChess board or a pgn character string')
     
     moves = game$history(verbose= TRUE)
-    if(suppressWarnings(is.null(moves$promotion))){
-        moves$promotion = ''
-    } else{
-        moves$promotion[is.na(moves$promotion)]=''
-    }
-    stockmoves = paste0(moves$from,moves$to,moves$promotion)
+    stockmoves = historyToLong(moves)
     
     if(progress){
         pb = txtProgressBar(min = 0,max = length(stockmoves),style = 3)

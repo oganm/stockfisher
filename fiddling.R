@@ -7,6 +7,7 @@ devtools::load_all()
 stockfish = system2('which','stockfish',stdout = TRUE)
 stockfish = subprocess::spawn_process(stockfish)
 
+stockfish = startStockfish()
 board = Chess$new()
 while(board$game_over() == FALSE){
     turn = board$turn()
@@ -15,7 +16,7 @@ while(board$game_over() == FALSE){
     } else{
         movetime = 1000
     }
-    move = stockStep(board,movetime= movetime,stockfish = stockfish)$bestmove
+    move = stockStep(board,movetime= movetime, translate = TRUE,stockfish = stockfish)$bestmove
     print(move)
     board$move(move)
     board$ascii()
@@ -47,8 +48,8 @@ stockfish = subprocess::spawn_process(stockfish)
 board = Chess$new()
 p = ggchessboard(board$fen())
 
-btime = 360000
-wtime = 360000
+btime = 60000
+wtime = 60000
 
 # we create an rchess board to play our game with
 board = Chess$new()
@@ -66,7 +67,7 @@ while(board$game_over() == FALSE){
     # }
     
     tic()
-    out = stockStep(board,btime= btime,wtime=wtime,stockfish = stockfish)
+    out = stockStep(board,btime= btime,wtime=wtime,translate = TRUE,stockfish = stockfish)
     move = out$bestmove
     # move = stockStep(board,movetime = 5000,stockfish = stockfish)$bestmove
     elapsed = toc()
@@ -105,13 +106,28 @@ pgn = readLines('nakamura_kramnik_2012.pgn')
 
 pgn <- paste(pgn, collapse = "\n")
 
-evaluations = gameAnalysis(pgn,movetime = 500,stockfish = stockfish)
+stockfish = startStockfish()
+
+evaluations = gameAnalysis(pgn,movetime = 5000,stockfish = stockfish)
 scores = evaluations$score
 scores[evaluations$scoreType=='mate'] = (evaluations$score %>% max)+1
+plot(scores)
 
+stopStockfish(stockfish)
+stockfish = startStockfish()
+board = rchess::Chess$new()
 
-chsspgn <- Chess$new()
-chsspgn$load_pgn(pgn)
-moves = chsspgn$history(verbose= TRUE)
-moves$promotion[is.na(moves$promotion)]=''
-stockmoves = paste0(moves$from,moves$to,moves$promotion)
+out = stockStep(board,movetime= 1000, stockfish = stockfish,ponder = TRUE,translate = TRUE)
+board$move(out$bestmove)
+board$move(out$ponder)
+
+out = ponderhit(board = board,movetime = 1000,translate = TRUE,stockfish = stockfish,ponder = TRUE)
+board$move(out$bestmove)
+board$move(out$ponder)
+out = ponderhit(board = board,movetime = 1000,translate = TRUE,stockfish = stockfish,ponder = TRUE)
+board$move(out$bestmove)
+board$move(out$ponder)
+out = ponderhit(board = board,movetime = 1000,translate = TRUE,stockfish = stockfish,ponder = TRUE)
+board$move(out$bestmove)
+board$move(out$ponder)
+stopStockfish(stockfish)

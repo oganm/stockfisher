@@ -30,12 +30,14 @@
 #' @export
 #'
 #' @examples
-stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
+stockStep = function(board = NULL, posString = NULL, movetime = NULL, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
     # send a stop just in case it was pondering
     # print('stockstep')
     # print(board$ascii())
     subprocess::process_write(stockfish, glue::glue('stop\n\n'))
-    
+    # cleanup any previous messages that might still be there
+    leftovers = subprocess::process_read(stockfish, subprocess::PIPE_STDOUT, timeout = 0,  flush = TRUE)
+    # print(leftovers)
     if(is.null(stockfish) & ponder){
         stop("You need to provide a stockfish session to enable pondering")
     } else if(ponder){
@@ -48,7 +50,20 @@ stockStep = function(board = NULL, posString = NULL, movetime = 5000, wtime = NU
     # stockfish = subprocess::spawn_process(stockfish)
     # process_read(stockfish, PIPE_STDOUT, timeout = 1000,  flush = FALSE)
     if(!is.null(board)){
-        subprocess::process_write(stockfish, glue::glue('position fen {board$fen()}\n\n'))
+        # i used to send fen information to the engine by itself but that causes
+        # engine not to notice if it's getting into a 3fold repetition state. 
+        # now I send the 
+        if(length(board$history())>0){
+            moves = historyToLong(board$history(verbose=TRUE))
+            oldFen = stringr::str_extract(board$pgn(),'(?<=FEN ").*?(?=")')
+            if(is.na(oldFen)){
+                subprocess::process_write(stockfish, glue::glue("position startpos moves {paste(moves,collapse = ' ')}\n\n"))
+            } else{
+                subprocess::process_write(stockfish, glue::glue("position fen {oldFen} moves {paste(moves,collapse = ' ')}\n\n"))
+            }
+        } else{
+            subprocess::process_write(stockfish, glue::glue('position fen {board$fen()}\n\n'))
+        }
     } else if(!is.null(posString)){
         # translate must be false if posString is used
         subprocess::process_write(stockfish, glue::glue('position {posString}\n\n'))
@@ -88,7 +103,20 @@ ponderfun = function(board = NULL,posString = NULL,out,stockfish,toc,movetime=NU
         out = translateMove(board,out)
         boardClone$move(out$bestmove)
         boardClone$move(out$ponder)
-        subprocess::process_write(stockfish, glue::glue('position fen {boardClone$fen()}\n\n'))
+        
+        if(length(boardClone$history())>0){
+            moves = historyToLong(boardClone$history(verbose=TRUE))
+            oldFen = stringr::str_extract(boardClone$pgn(),'(?<=FEN ").*?(?=")')
+            if(is.na(oldFen)){
+                subprocess::process_write(stockfish, glue::glue("position startpos moves {paste(moves,collapse = ' ')}\n\n"))
+            } else{
+                subprocess::process_write(stockfish, glue::glue("position fen {oldFen} moves {paste(moves,collapse = ' ')}\n\n"))
+            }
+        } else{
+            subprocess::process_write(stockfish, glue::glue('position fen {boardClone$fen()}\n\n'))
+        }
+        
+        # subprocess::process_write(stockfish, glue::glue('position fen {boardClone$fen()}\n\n'))
     } else if (!is.null(posString)){
         anneal = paste(out$bestmove,out$ponder)
         if(grepl('moves',posString)){
@@ -113,6 +141,14 @@ ponderfun = function(board = NULL,posString = NULL,out,stockfish,toc,movetime=NU
     } else if(!is.null(depth)){
         subprocess::process_write(stockfish, glue::glue('go ponder depth {depth}\n\n'))
     }
+}
+
+historyToLong = function(history){
+    if(!'promotion' %in% colnames(history)){
+        history$promotion = NA
+    }
+    history$promotion[is.na(history$promotion)] = ''
+    paste0(history$from,history$to,history$promotion)
 }
 
 translateMove = function(board,out){
@@ -156,22 +192,32 @@ readBestMove = function(stockfish){
     ponder = stringr::str_extract(out[length(out)], '(?<=ponder )[a-zA-Z0-9]+')
     scores = out[grepl(pattern = 'score (cp|mate|upperbound|lowerbound)',out)]
     score = stringr::str_extract(scores[length(scores)],'(?<=(cp|mate|upperbound|lowerbound) )[\\-0-9]*') %>% as.integer()
+    # if(score==0){
+    #     print(out)
+    # }
     scoreType = stringr::str_extract(scores[length(scores)],'(?<=score )(cp|mate|upperbound|lowerbound)')
+    time = stringr::str_extract(scores[length(scores)],'(?<=time )[0-9]*') %>% as.integer
+    
     out = list(bestmove = bestmove,
                ponder = ponder,
                score = score,
-               scoreType = scoreType)
+               scoreType = scoreType,
+               time = time)
     return(out)
 }
 
 #' @export
-ponderhit = function(board = NULL,posString = NULL,movetime = 5000, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
+ponderhit = function(board = NULL,posString = NULL,movetime = NULL, wtime = NULL, btime = NULL, depth = NULL, translate = FALSE, ponder = FALSE, stockfish = NULL){
     if(ponder){
         tictoc::tic()
     }
     # print('ponderhit function')
     # print(board$ascii())
     # browser()
+    
+    # cleanup any previous messages that might still be there
+    leftovers = subprocess::process_read(stockfish, subprocess::PIPE_STDOUT, timeout = 0,  flush = TRUE)
+    
     subprocess::process_write(stockfish, glue::glue('ponderhit\n\n'))
     
     out = readBestMove(stockfish)

@@ -11,7 +11,7 @@
 #' stopStockfish()
 #' 
 #' @export
-startStockfish = function(){
+startStockfish = function(...){
     if(Sys.info()['sysname'] =='Windows'){
         stockfish = system.file('Windows/stockfish_10_x64.exe',package = 'stockfisher')
     } else if(Sys.info()['sysname'] == 'Linux'){
@@ -19,7 +19,7 @@ startStockfish = function(){
     } else{
         stockfish = system.file('Mac/stockfish_10_64',package = 'stockfisher')
     }
-    stockfish = subprocess::spawn_process(stockfish)
+    stockfish = subprocess::spawn_process(stockfish,...)
     return(stockfish)
 }
 

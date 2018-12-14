@@ -4,7 +4,7 @@
 \alias{startStockfish}
 \title{Start stockfish}
 \usage{
-startStockfish()
+startStockfish(...)
 }
 \description{
 Starts a stockfish process from binaries included in the package. Functions

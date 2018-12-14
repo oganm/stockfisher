@@ -4,7 +4,7 @@
 \alias{stockStep}
 \title{Calculate next move based on current position}
 \usage{
-stockStep(board = NULL, posString = NULL, movetime = 5000,
+stockStep(board = NULL, posString = NULL, movetime = NULL,
   wtime = NULL, btime = NULL, depth = NULL, translate = FALSE,
   ponder = FALSE, stockfish = NULL)
 }

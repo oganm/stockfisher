@@ -27,8 +27,6 @@ Spawning a process beforehand is also good if you want to set some engine parame
 getOptions(stockfish)
 ```
 
-    ## Warning: package 'bindrcpp' was built under R version 3.4.4
-
     ##                     name
     ## 1         Debug Log File
     ## 2               Contempt
@@ -83,11 +81,7 @@ As an input it accepts a `Chess` object from the `rchess` package or a string th
 
 ``` r
 library(rchess)
-```
 
-    ## Warning: package 'rchess' was built under R version 3.4.4
-
-``` r
 board = Chess$new()
 
 # use the position of the board as input
@@ -102,10 +96,13 @@ stockStep(board,movetime= 2000, stockfish = stockfish)
     ## [1] "e7e5"
     ## 
     ## $score
-    ## [1] 72
+    ## [1] 62
     ## 
     ## $scoreType
     ## [1] "cp"
+    ## 
+    ## $time
+    ## [1] 2001
 
 ``` r
 # use the string as input
@@ -113,16 +110,19 @@ stockStep(posString = 'startpos moves e2e4',movetime= 1000, stockfish = stockfis
 ```
 
     ## $bestmove
-    ## [1] "e7e5"
+    ## [1] "c7c5"
     ## 
     ## $ponder
     ## [1] "g1f3"
     ## 
     ## $score
-    ## [1] -13
+    ## [1] -22
     ## 
     ## $scoreType
     ## [1] "cp"
+    ## 
+    ## $time
+    ## [1] 1001
 
 If you want to pass a move back to the rchess board, the short algebraic notation should be used. You can have `stockStep` to return in this format using the `translate` argument.
 
@@ -134,13 +134,16 @@ stockStep(board,movetime= 2000, stockfish = stockfish,translate = TRUE)
     ## [1] "d4"
     ## 
     ## $ponder
-    ## [1] "Nf6"
+    ## [1] "d5"
     ## 
     ## $score
-    ## [1] 63
+    ## [1] 61
     ## 
     ## $scoreType
     ## [1] "cp"
+    ## 
+    ## $time
+    ## [1] 2001
 
 Note that the input must always be an `rchess` board rather than the `startPos` argument for this to work.
 
@@ -192,40 +195,79 @@ animateGame(board,file = 'README_files/kasparov_vs_topalov.gif',
 
 ### Running games
 
-Here I'll use `stockfisher` to run a 1 minute game between 2 AI opponents. A single session stockfish session is used here but 2 sessions can be started if two different engines are to be used. 2 sessions could also be useful if you want to experiment with pondering but this package's pondering implementation is currently buggy. Sorry about that...
+Here I'll use `stockfisher` to run a timed game between 2 AI opponents. 2 stockfish sessions are used here to demonstrate pondering (setting `ponder=TRUE` allows the engine to continue processing assuming the opponent will move as predicted in `ponder`). In this context one of the players can be replaced with a different engine. A simpler implementation
 
 ``` r
 library(tictoc)
-```
 
-    ## Warning: package 'tictoc' was built under R version 3.4.4
 
-``` r
-# 1 minute timer for each player
+players = list(
+    w = startStockfish(),
+    b = startStockfish()
+)
+
+# an estimate of the move overhead
+setOptions(players$w,optionList = list(`Move Overhead` = 400))
+setOptions(players$b,optionList = list(`Move Overhead` = 400))
+
+
+ponder = list(
+    w = '',
+    b = ''
+)
+
+# timer for each player
+# lets give white an edge
+# white has 2 minutes
+# black has 1.5
 timer = list(
-    w = 60000,
-    b = 60000
+    w = 120000,
+    b = 90000
 )
 
 board = Chess$new()
-
 while(!board$game_over() & timer[[board$turn()]] > 0){
     turn = board$turn()
     history = board$history()
     tic()
-    move = stockStep(board,
-                     wtime = timer$w,
-                     btime = timer$b,
-                     translate = TRUE,
-                     stockfish = stockfish)  
 
+    if(!is.na(ponder[[turn]]) && length(history)>0 && history[length(history)] == ponder[[turn]]){
+        # if the opponent moves as the engine predicted, send a ponderhit
+        # print('ponderhit')
+        move = ponderhit(board,
+                  wtime = timer$w,
+                  btime = timer$b,
+                  translate = TRUE,
+                  ponder = TRUE,
+                  stockfish = players[[turn]])
+    } else{
+        # if the engine couldn't predict how the opponent will move in the previous turn, get the best move as normal
+        # print('normal move')
+        move = stockStep(board,
+                         wtime = timer$w,
+                         btime = timer$b,
+                         translate = TRUE,
+                         stockfish = players[[turn]],
+                         ponder = TRUE)  
+    }
     board$move(move$bestmove)
+    ponder[[turn]] = move$ponder
+    # update timers
     time = toc(quiet = TRUE)
     timePassed = 1000*(time$toc - time$tic)
     timer[[turn]] = unname(timer[[turn]] - timePassed)
-    
-}
+    # overhead calculation. negative returns are due to added ponder time.
+    # tend to fluctuate between 350-250 on my machine
+    # overhead = timePassed-(move$time)
+    # print(overhead)
 
+}
+# shutdown both player processes
+players %>% sapply(stopStockfish) %>% invisible()
+# save game for a later look
+writeLines(board$pgn(),'README_files/stockfish_vs_stockfish.pgn')
+
+# animate the game board
 animateGame(board,file = 'README_files/stockfish_vs_stockfish.gif',
             width = 4,
             height = 4,
@@ -234,6 +276,17 @@ animateGame(board,file = 'README_files/stockfish_vs_stockfish.gif',
 ```
 
 ![](README_files/stockfish_vs_stockfish.gif)
+
+The resulting game can be analyzed using `gameAnalysis`.
+
+``` r
+evaluations = gameAnalysis(board,movetime = 500,stockfish = stockfish,progress = FALSE)
+scores = evaluations$score
+scores[evaluations$scoreType=='mate'] = (evaluations$score %>% max)+1
+plot(scores)
+```
+
+![](README_files/figure-markdown_github/stockfishAnalysis-1.png)
 
 Finally use `stopStockfish` to stop the engine process
 
