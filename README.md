@@ -116,7 +116,7 @@ stockStep(posString = 'startpos moves e2e4',movetime= 1000, stockfish = stockfis
     ## [1] "g1f3"
     ## 
     ## $score
-    ## [1] -22
+    ## [1] -17
     ## 
     ## $scoreType
     ## [1] "cp"
@@ -131,13 +131,13 @@ stockStep(board,movetime= 2000, stockfish = stockfish,translate = TRUE)
 ```
 
     ## $bestmove
-    ## [1] "d4"
+    ## [1] "e4"
     ## 
     ## $ponder
-    ## [1] "d5"
+    ## [1] "c5"
     ## 
     ## $score
-    ## [1] 61
+    ## [1] 68
     ## 
     ## $scoreType
     ## [1] "cp"
@@ -195,7 +195,7 @@ animateGame(board,file = 'README_files/kasparov_vs_topalov.gif',
 
 ### Running games
 
-Here I'll use `stockfisher` to run a timed game between 2 AI opponents. 2 stockfish sessions are used here to demonstrate pondering (setting `ponder=TRUE` allows the engine to continue processing assuming the opponent will move as predicted in `ponder`). In this context one of the players can be replaced with a different engine. A simpler implementation
+Here I'll use `stockfisher` to run a timed game between 2 AI opponents. 2 stockfish sessions are used here to demonstrate pondering (setting `ponder=TRUE` allows the engine to continue processing assuming the opponent will move as predicted in `ponder`). In this context one of the players can be replaced with a different engine. A simpler implementation with a single session is also possible if you just want to see how the engine functions under different parameters without pondering.
 
 ``` r
 library(tictoc)
@@ -218,11 +218,11 @@ ponder = list(
 
 # timer for each player
 # lets give white an edge
-# white has 2 minutes
-# black has 1.5
+# white has 2.5 minutes
+# black has 1
 timer = list(
     w = 120000,
-    b = 90000
+    b = 120000
 )
 
 board = Chess$new()
@@ -277,7 +277,7 @@ animateGame(board,file = 'README_files/stockfish_vs_stockfish.gif',
 
 ![](README_files/stockfish_vs_stockfish.gif)
 
-The resulting game can be analyzed using `gameAnalysis`.
+The resulting game can be analyzed using `gameAnalysis`. These games tend to end in a stalemate as both engines have access to the same resources. One could try giving less time to one of the players but with pondering on, any time one player spends thinking gives other player the time to think, especially since they are more likely to ponderhit each other since they are the same engine.
 
 ``` r
 evaluations = gameAnalysis(board,movetime = 500,stockfish = stockfish,progress = FALSE)
@@ -287,6 +287,14 @@ plot(scores)
 ```
 
 ![](README_files/figure-markdown_github/stockfishAnalysis-1.png)
+
+How did the game end? `rchess` doesn't include a single function to get the game state to we have
+
+``` r
+gameState(board)
+```
+
+    ## [1] "draw-threefold repetition"
 
 Finally use `stopStockfish` to stop the engine process
 
