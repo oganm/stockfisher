@@ -216,10 +216,7 @@ ponder = list(
     b = ''
 )
 
-# timer for each player
-# lets give white an edge
-# white has 2.5 minutes
-# black has 1
+# 2 minute timer for each player
 timer = list(
     w = 120000,
     b = 120000
