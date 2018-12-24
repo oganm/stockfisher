@@ -7,7 +7,8 @@ gameAnalysis = function(game,movetime=5000,depth = NULL,stockfish = NULL,progres
         on.exit(subprocess::process_kill(stockfish))
     }
     if('character' %in% class(game)){
-        game <- rchess::Chess$new()
+        pgn = game
+        game = rchess::Chess$new()
         game$load_pgn(pgn)
     }
     assertthat::assert_that('Chess' %in% class(game),msg = 'game should be a RChess board or a pgn character string')
