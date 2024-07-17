@@ -14,7 +14,8 @@ Imports:
     magick,
     microbenchmark
 Remotes:
-    lbartnik/subprocess
+    lbartnik/subprocess,
+    jbkunst/rchess
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
 LazyData: true
